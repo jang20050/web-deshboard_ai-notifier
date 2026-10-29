@@ -1,0 +1,79 @@
+/* 디자인 토큰 — 색·글자·간격을 여기서만 정의합니다.
+   글자 대비: 본문 4.5:1 이상, 아이콘·막대 등 비텍스트 3:1 이상 (WCAG 1.4.3 / 1.4.11)
+   상태 색(good·warning·serious·critical)은 항상 아이콘 + 글자와 함께 씁니다 (1.4.1) */
+:root {
+  color-scheme: light;
+  --font: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, "D2Coding", monospace;
+
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --surface-2: #f2f1ed;
+  --text: #0b0b0b;
+  --text-2: #52514e;
+  --muted: #64635e;          /* 5.6:1 — 보조 글자도 4.5:1 이상 */
+  --border: rgba(11, 11, 11, 0.12);
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --focus: #1c5cab;
+
+  --series-1: #2a78d6;       /* CPU 사용량 */
+  --series-2: #eb6834;       /* CPU 온도 */
+  --accent: #2a78d6;
+  --accent-track: #cde2fb;
+
+  --good: #0ca30c;
+  --warning: #fab219;
+  --serious: #ec835a;
+  --critical: #d03b3b;
+  --good-ink: #006300;       /* 글자용 (4.5:1) */
+
+  --lcd-bg: #2f4f1c;
+  --lcd-ink: #d8f5b0;
+
+  --radius: 12px;
+  --gap: 16px;
+  --shadow: 0 1px 2px rgba(11, 11, 11, 0.06);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --surface-2: #242422;
+    --text: #f0efec;
+    --text-2: #c3c2b7;
+    --muted: #a3a29b;
+    --border: rgba(255, 255, 255, 0.12);
+    --grid: #2c2c2a;
+    --axis: #4a4a46;
+    --focus: #86b6ef;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --accent: #3987e5;
+    --accent-track: #1f3550;
+    --good-ink: #0ca30c;
+    --shadow: none;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d;
+  --surface: #1a1a19;
+  --surface-2: #242422;
+  --text: #f0efec;
+  --text-2: #c3c2b7;
+  --muted: #a3a29b;
+  --border: rgba(255, 255, 255, 0.12);
+  --grid: #2c2c2a;
+  --axis: #4a4a46;
+  --focus: #86b6ef;
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --accent: #3987e5;
+  --accent-track: #1f3550;
+  --good-ink: #0ca30c;
+  --shadow: none;
+}

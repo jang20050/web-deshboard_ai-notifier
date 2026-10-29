@@ -1,0 +1,19 @@
+{
+  "classes": [
+    "none",
+    "ok"
+  ],
+  "base_model": "yolo26n-cls.pt",
+  "epochs": 30,
+  "imgsz": 224,
+  "metrics": {
+    "accuracy_top1": 1.0,
+    "accuracy_top5": 1.0
+  },
+  "images": {
+    "none": 210,
+    "ok": 231
+  },
+  "trained_at": "2026-10-29T14:16:49",
+  "run_dir": "runs\\train_20261029_140700"
+}

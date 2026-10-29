@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI 작업 알림 대시보드</title>
+  <meta name="description" content="Claude Code 작업 진행도, 컴퓨터 부하, 알림 장치(UNO·웹캠·ESP32-S3) 상태">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/style.css">
+  <script>
+    // 저장해 둔 테마를 먼저 적용 (깜빡임 방지). 저장소를 못 쓰면 시스템 설정을 따름
+    try { const t = localStorage.getItem("theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
+</head>
+<body>
+  <!-- 아이콘 모음: 상태는 색 + 모양 + 글자로 함께 표시 -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <symbol id="i-work" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M12 7v5l3 2" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+    <symbol id="i-input" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M12 13v.01M10 8.5a2 2 0 1 1 2.6 1.9c-.4.2-.6.5-.6.9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+    <symbol id="i-done" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="m7.5 12.5 3 3 6-6.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-seen" viewBox="0 0 24 24"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12z" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="12" cy="12" r="3" fill="currentColor"/></symbol>
+    <symbol id="i-idle" viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1.5" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1.5" fill="currentColor"/></symbol>
+    <symbol id="i-error" viewBox="0 0 24 24"><path d="M8 3h8l5 5v8l-5 5H8l-5-5V8z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M12 7.5v5.5M12 16.5v.01" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+    <symbol id="i-good" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="m7.5 12.5 3 3 6-6.5" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-warning" viewBox="0 0 24 24"><path d="M12 2.5 22.5 21h-21z" fill="currentColor"/><path d="M12 9v5.5M12 17.5v.01" stroke="#0b0b0b" stroke-width="2.4" stroke-linecap="round"/></symbol>
+    <symbol id="i-critical" viewBox="0 0 24 24"><path d="M8 2h8l6 6v8l-6 6H8l-6-6V8z" fill="currentColor"/><path d="M12 7v6M12 16.5v.01" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></symbol>
+    <symbol id="i-unknown" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M8 12h8" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z" fill="currentColor"/></symbol>
+    <symbol id="i-theme" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor"/></symbol>
+  </svg>
+
+  <a class="skip" href="#main">본문으로 건너뛰기</a>
+
+  <header class="topbar">
+    <div class="topbar__title">
+      <h1>AI 작업 알림 대시보드</h1>
+      <p class="topbar__sub">Claude Code 진행 상황 · 컴퓨터 부하 · 알림 장치 상태 <span class="tag" id="where-tag">이 PC</span></p>
+    </div>
+    <div class="topbar__tools">
+      <p class="conn" id="conn" data-state="connecting">
+        <svg class="icon" aria-hidden="true"><use href="#i-unknown"/></svg>
+        <span id="conn-text">bridge 연결 중…</span>
+      </p>
+      <p class="updated">마지막 갱신 <time id="updated">—</time></p>
+      <button type="button" class="btn" id="pause-btn" aria-pressed="false">
+        <svg class="icon" aria-hidden="true"><use href="#i-pause"/></svg><span>자동 갱신 일시정지</span>
+      </button>
+      <button type="button" class="btn btn--ghost" id="theme-btn" aria-label="화면 테마: 시스템 설정">
+        <svg class="icon" aria-hidden="true"><use href="#i-theme"/></svg><span id="theme-text">시스템</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- 상태 변화 안내 (화면 낭독기용, WCAG 4.1.3) -->
+  <div id="announcer" class="sr-only" role="status" aria-live="polite"></div>
+
+  <main id="main" tabindex="-1">
+    <p class="paused-banner" id="paused-banner" hidden>
+      자동 갱신을 멈췄습니다. 화면의 값은 멈춘 시점 기준입니다. <button type="button" class="link-btn" id="resume-link">다시 시작</button>
+    </p>
+
+    <!-- 1. AI 작업 ───────────────────────────────────────────── -->
+    <section class="zone" aria-labelledby="ai-h">
+      <div class="zone__head">
+        <h2 id="ai-h">AI 작업</h2>
+        <p class="zone__q">지금 AI에게 가야 하나요, 계속 맡겨도 되나요?</p>
+      </div>
+      <div class="ai-grid">
+        <article class="card card--hero" id="ai-card" data-state="IDLE" aria-labelledby="ai-state-text">
+          <div class="hero__state">
+            <svg class="hero__icon" aria-hidden="true"><use id="ai-icon" href="#i-idle"/></svg>
+            <div>
+              <p class="hero__label" id="ai-state-text">대기 중</p>
+              <p class="hero__meta" id="ai-meta">작업 없음</p>
+            </div>
+          </div>
+
+          <div class="hero__progress">
+            <p class="hero__pct"><span id="ai-pct">0</span><span class="hero__unit">%</span></p>
+            <div class="hero__pct-note">
+              <p id="ai-phase">—</p>
+              <p class="muted">진행도는 사용 중인 도구로 <strong>추정</strong>한 값입니다</p>
+            </div>
+          </div>
+          <div class="bar" role="progressbar" id="ai-bar" aria-label="AI 작업 진행도(추정)"
+               aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="0%, 대기 중">
+            <div class="bar__fill" id="ai-bar-fill"></div>
+          </div>
+
+          <ol class="steps" id="ai-steps" aria-label="작업 단계">
+            <li data-key="read"><span class="steps__name">파악</span><span class="steps__range">0–20%</span></li>
+            <li data-key="plan"><span class="steps__name">정리</span><span class="steps__range">20–30%</span></li>
+            <li data-key="build"><span class="steps__name">만드는 중</span><span class="steps__range">50–60%</span></li>
+            <li data-key="review"><span class="steps__name">최종 검토</span><span class="steps__range">80–90%</span></li>
+            <li data-key="done"><span class="steps__name">완료</span><span class="steps__range">100%</span></li>
+          </ol>
+
+          <dl class="facts">
+            <div><dt id="ai-elapsed-label">경과 시간</dt><dd id="ai-elapsed">—</dd></div>
+            <div><dt>프로젝트</dt><dd id="ai-project">—</dd></div>
+            <div><dt>마지막 확인</dt><dd id="ai-last-ack">—</dd></div>
+          </dl>
+        </article>
+
+        <div class="ai-side">
+          <article class="card card--todo" id="todo-card" aria-labelledby="todo-h">
+            <h3 id="todo-h">지금 할 일</h3>
+            <p class="todo__main" id="todo-main">Claude Code에 작업을 요청하면 진행도가 표시됩니다.</p>
+            <p class="todo__sub muted" id="todo-sub"></p>
+            <div class="todo__actions">
+              <button type="button" class="btn btn--alert" id="ack-btn" hidden>부저 끄기</button>
+              <p class="small" id="ack-msg" aria-live="polite"></p>
+            </div>
+          </article>
+
+          <article class="card" aria-labelledby="tl-h">
+            <h3 id="tl-h">현재 작업 진행 기록</h3>
+            <ol class="timeline" id="timeline" tabindex="0" aria-label="현재 작업 진행 기록, 최신순"></ol>
+            <p class="empty muted" id="timeline-empty">아직 기록이 없습니다.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. 컴퓨터 상태 ─────────────────────────────────────────── -->
+    <section class="zone" aria-labelledby="pc-h">
+      <div class="zone__head">
+        <h2 id="pc-h">컴퓨터 상태</h2>
+        <p class="zone__q">이 PC가 작업을 감당하고 있나요? (과부하·온도)</p>
+        <p class="status-pill" id="pc-overall" data-level="unknown">
+          <svg class="icon" aria-hidden="true"><use href="#i-unknown"/></svg><span>확인 중</span>
+        </p>
+      </div>
+
+      <div class="tiles">
+        <article class="card tile" id="tile-cpu" aria-labelledby="tile-cpu-h">
+          <h3 id="tile-cpu-h" class="tile__label">CPU 사용량</h3>
+          <p class="tile__value"><span data-v>—</span><span class="tile__unit">%</span></p>
+          <div class="meter" aria-hidden="true"><div class="meter__fill" data-meter></div></div>
+          <p class="lvl" data-lvl><svg class="icon" aria-hidden="true"><use href="#i-unknown"/></svg><span>확인 중</span></p>
+          <p class="tile__note muted" data-note></p>
+        </article>
+        <article class="card tile" id="tile-temp" aria-labelledby="tile-temp-h">
+          <h3 id="tile-temp-h" class="tile__label">CPU 온도</h3>
+          <p class="tile__value"><span data-v>—</span><span class="tile__unit">°C</span></p>
+          <div class="meter" aria-hidden="true"><div class="meter__fill" data-meter></div></div>
+          <p class="lvl" data-lvl><svg class="icon" aria-hidden="true"><use href="#i-unknown"/></svg><span>확인 중</span></p>
+          <p class="tile__note muted" data-note></p>
+        </article>
+        <article class="card tile" id="tile-mem" aria-labelledby="tile-mem-h">
+          <h3 id="tile-mem-h" class="tile__label">메모리</h3>
+          <p class="tile__value"><span data-v>—</span><span class="tile__unit">%</span></p>
+          <div class="meter" aria-hidden="true"><div class="meter__fill" data-meter></div></div>
+          <p class="lvl" data-lvl><svg class="icon" aria-hidden="true"><use href="#i-unknown"/></svg><span>확인 중</span></p>
+          <p class="tile__note muted" data-note></p>
+        </article>
+        <article class="card tile" id="tile-batt" aria-labelledby="tile-batt-h">
+          <h3 id="tile-batt-h" class="tile__label">배터리</h3>
+          <p class="tile__value"><span data-v>—</span><span class="tile__unit">%</span></p>
+          <div class="meter" aria-hidden="true"><div class="meter__fill" data-meter></div></div>
+          <p class="lvl" data-lvl><svg class="icon" aria-hidden="true"><use href="#i-unknown"/></svg><span>확인 중</span></p>
+          <p class="tile__note muted" data-note></p>
+        </article>
+      </div>
+
+      <div class="charts">
+        <article class="card chart-card" aria-labelledby="ch-cpu-h">
+          <h3 id="ch-cpu-h">CPU 사용량 <span class="muted">· 최근 10분, %</span></h3>
+          <div class="chart" id="chart-cpu"></div>
+        </article>
+        <article class="card chart-card" aria-labelledby="ch-temp-h">
+          <h3 id="ch-temp-h">CPU 온도 <span class="muted">· 최근 10분, °C</span></h3>
+          <div class="chart" id="chart-temp"></div>
+        </article>
+      </div>
+    </section>
+
+    <!-- 3. 알림 장치 ──────────────────────────────────────────── -->
+    <section class="zone" aria-labelledby="dev-h">
+      <div class="zone__head">
+        <h2 id="dev-h">알림 장치</h2>
+        <p class="zone__q">알림을 보여 주고 확인을 받는 장치가 제대로 연결되어 있나요?</p>
+      </div>
+
+      <div class="devices">
+        <!-- 아두이노 UNO -->
+        <article class="card device" id="dev-uno" aria-labelledby="uno-h">
+          <header class="device__head">
+            <h3 id="uno-h">아두이노 UNO</h3>
+            <p class="status-pill" data-pill data-level="unknown"><svg class="icon" aria-hidden="true"><use href="#i-unknown"/></svg><span>확인 중</span></p>
+          </header>
+          <div class="lcd" role="img" id="uno-lcd" aria-label="LCD 화면: 정보 없음">
+            <span class="lcd__line" id="lcd-0">                </span>
+            <span class="lcd__line" id="lcd-1">                </span>
+          </div>
+          <p class="muted small">LCD 그림은 bridge가 보낸 마지막 명령으로 재현한 화면입니다.</p>
+          <dl class="facts facts--list">
+            <div><dt>포트</dt><dd data-f="port">—</dd></div>
+            <div><dt>LCD</dt><dd data-f="lcd">—</dd></div>
+            <div><dt>마지막 명령</dt><dd data-f="sent">—</dd></div>
+            <div><dt>마지막 버튼</dt><dd data-f="btn">—</dd></div>
+            <div><dt>연결 유지</dt><dd data-f="since">—</dd></div>
+          </dl>
+        </article>
+
+        <!-- 웹캠 -->
+        <article class="card device" id="dev-cam" aria-labelledby="cam-h">
+          <header class="device__head">
+            <h3 id="cam-h">웹캠 · ok 제스처 확인</h3>
+            <p class="status-pill" data-pill data-level="unknown"><svg class="icon" aria-hidden="true"><use href="#i-unknown"/></svg><span>확인 중</span></p>
+          </header>
+          <div class="cam">
+            <img id="cam-img" alt="" hidden>
+            <p class="cam__off" id="cam-off">카메라 꺼짐<br><span class="small">알림이 울릴 때만 켜집니다</span></p>
+          </div>
+          <dl class="facts facts--list">
+            <div><dt>인식 결과</dt><dd id="cam-result">—</dd></div>
+            <div><dt>ok 유지</dt>
+              <dd>
+                <div class="hold" role="progressbar" id="cam-hold" aria-label="ok 제스처 유지 시간"
+                     aria-valuemin="0" aria-valuemax="1" aria-valuenow="0" aria-valuetext="0초 / 1초">
+                  <div class="hold__fill" id="cam-hold-fill"></div>
+                </div>
+                <span id="cam-hold-text" class="small">0.0 / 1.0초</span>
+              </dd>
+            </div>
+            <div><dt>마지막 제스처 확인</dt><dd id="cam-last">—</dd></div>
+          </dl>
+          <div class="cam__actions">
+            <button type="button" class="btn" id="cam-preview-btn">카메라 미리보기 30초</button>
+            <p class="small muted" id="cam-preview-msg" aria-live="polite"></p>
+          </div>
+          <p class="small muted">영상은 저장하지 않습니다. 미리보기 중에는 제스처를 인식해도 알림을 끄지 않습니다.</p>
+        </article>
+
+        <!-- ESP32-S3 -->
+        <article class="card device" id="dev-esp" aria-labelledby="esp-h">
+          <header class="device__head">
+            <h3 id="esp-h">ESP32-S3 <span class="tag">휴대폰 중계</span></h3>
+            <p class="status-pill" data-pill data-level="unknown"><svg class="icon" aria-hidden="true"><use href="#i-unknown"/></svg><span>확인 중</span></p>
+          </header>
+          <p class="sim-badge" id="esp-sim" hidden>시뮬레이션 데이터 — 실제 장치 값이 아닙니다</p>
+          <dl class="facts facts--list">
+            <div><dt>칩 온도</dt><dd data-f="temp">—</dd></div>
+            <div><dt>Wi-Fi 신호</dt><dd data-f="rssi">—</dd></div>
+            <div><dt>마지막 수신</dt><dd data-f="seen">—</dd></div>
+            <div><dt>평균 수신 간격</dt><dd data-f="interval">—</dd></div>
+            <div><dt>휴대폰 페이지</dt><dd data-f="phone">—</dd></div>
+            <div><dt>잠금 화면 알림</dt><dd data-f="ntfy">—</dd></div>
+            <div><dt>PC 찾은 방법</dt><dd data-f="found">—</dd></div>
+            <div><dt>IP · 펌웨어</dt><dd data-f="ip">—</dd></div>
+            <div><dt>가동 시간</dt><dd data-f="uptime">—</dd></div>
+          </dl>
+          <p class="small muted" id="esp-note">ESP32-S3를 켜면 같은 Wi-Fi에서 이 PC를 자동으로 찾아 연결합니다.</p>
+        </article>
+
+        <!-- 같은 Wi-Fi에서 보기 -->
+        <article class="card device" id="dev-remote" aria-labelledby="remote-h">
+          <header class="device__head">
+            <h3 id="remote-h">같은 Wi-Fi에서 보기</h3>
+            <p class="status-pill" data-pill data-level="unknown"><svg class="icon" aria-hidden="true"><use href="#i-unknown"/></svg><span>확인 중</span></p>
+          </header>
+          <div id="remote-local" hidden>
+            <p>휴대폰 브라우저에서 아래 주소를 열면 이 대시보드를 볼 수 있습니다. 처음 한 번만 토큰이 들어간 주소로 열면 됩니다.</p>
+            <ul class="urls" id="remote-urls"></ul>
+            <dl class="facts facts--list">
+              <div><dt>접속 토큰</dt><dd><code id="remote-token">—</code></dd></div>
+            </dl>
+            <p class="small muted">토큰이 있는 사람만 접속할 수 있습니다. 토큰을 바꾸려면 <code>data/access_token.txt</code>를 지우고 bridge를 다시 켜세요 (ESP32-S3 설정도 함께 변경).
+              방화벽 창이 떴다면 '개인 네트워크'를 허용해야 휴대폰에서 열립니다.</p>
+          </div>
+          <div id="remote-remote" hidden>
+            <p>다른 기기에서 보고 있습니다. 상태 확인과 부저 끄기를 할 수 있고, 웹캠 화면은 PC에서만 볼 수 있습니다.</p>
+          </div>
+          <p id="remote-off" class="muted" hidden>같은 Wi-Fi 공개가 꺼져 있습니다 (NOTIFIER_LAN=0).</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- 4. 작업 기록 ──────────────────────────────────────────── -->
+    <section class="zone" aria-labelledby="hist-h">
+      <div class="zone__head">
+        <h2 id="hist-h">작업 기록</h2>
+        <p class="zone__q">오늘 AI에게 얼마나 맡겼고, 알림에 얼마나 빨리 반응했나요?</p>
+      </div>
+      <div class="tiles tiles--stats">
+        <article class="card tile"><h3 class="tile__label">오늘 작업</h3><p class="tile__value"><span id="st-tasks">—</span><span class="tile__unit">건</span></p><p class="tile__note muted" id="st-longest"></p></article>
+        <article class="card tile"><h3 class="tile__label">오늘 맡긴 시간</h3><p class="tile__value"><span id="st-work">—</span></p><p class="tile__note muted">완료된 작업의 소요 시간 합계</p></article>
+        <article class="card tile"><h3 class="tile__label">오늘 알림</h3><p class="tile__value"><span id="st-alerts">—</span><span class="tile__unit">회</span></p><p class="tile__note muted" id="st-acked"></p></article>
+        <article class="card tile"><h3 class="tile__label">확인까지 평균</h3><p class="tile__value"><span id="st-delay">—</span></p><p class="tile__note muted" id="st-methods"></p></article>
+      </div>
+      <article class="card" aria-labelledby="tasks-h">
+        <h3 id="tasks-h">최근 작업 <span class="muted">· 최근 20건</span></h3>
+        <div class="table-wrap" tabindex="0" role="region" aria-labelledby="tasks-h">
+          <table class="table" id="tasks-table">
+            <thead><tr><th scope="col">시작</th><th scope="col">프로젝트</th><th scope="col" class="num">소요</th><th scope="col">결과</th><th scope="col">알림</th><th scope="col">확인 방법</th><th scope="col" class="num">확인까지</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="empty muted" id="tasks-empty" hidden>아직 기록된 작업이 없습니다.</p>
+      </article>
+    </section>
+  </main>
+
+  <footer class="foot muted small">
+    로컬 전용(127.0.0.1) · 프롬프트·파일 내용·영상은 저장하지 않습니다 · ISO 9241-110/112, WCAG 2.2 AA 기준으로 설계
+  </footer>
+
+  <div class="tooltip" id="tooltip" role="presentation" hidden></div>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

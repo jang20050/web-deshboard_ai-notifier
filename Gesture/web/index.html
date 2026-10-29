@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>제스처 학습기</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>제스처 학습기</h1>
+    <p class="sub">웹캠으로 손 제스처 사진을 모아 YOLO26 분류 모델을 학습합니다. 결과는 <code>Gesture/models/</code>에 저장됩니다.</p>
+  </header>
+
+  <main>
+    <section class="cam" aria-labelledby="cam-title">
+      <h2 id="cam-title">카메라</h2>
+      <div class="video-wrap">
+        <video id="video" autoplay playsinline muted></video>
+        <div id="flash" class="flash" aria-hidden="true"></div>
+        <div id="live-label" class="live-label" hidden></div>
+      </div>
+      <p id="cam-status" class="hint" role="status">카메라를 켜는 중…</p>
+    </section>
+
+    <div class="panels">
+      <section aria-labelledby="cls-title">
+        <h2 id="cls-title">1. 제스처(클래스)</h2>
+        <form id="add-form" class="row">
+          <label for="new-class" class="sr-only">새 클래스 이름</label>
+          <input id="new-class" placeholder="예: thumbs_up" pattern="[A-Za-z0-9_\-]{1,32}" required autocomplete="off">
+          <button type="submit">추가</button>
+        </form>
+        <p class="hint">영문·숫자·_·- 만 가능. 손을 안 보이거나 평소 손동작을 담은 <strong>none</strong> 클래스도 꼭 만들어 주세요 (오작동 방지).</p>
+        <ul id="class-list" class="class-list"></ul>
+      </section>
+
+      <section aria-labelledby="cap-title">
+        <h2 id="cap-title">2. 촬영</h2>
+        <p>선택된 클래스: <strong id="active-class">없음</strong></p>
+        <div class="row">
+          <button id="snap" type="button">1장 찍기 <kbd>Space</kbd></button>
+          <button id="burst" type="button" aria-pressed="false">연속 촬영 시작 <kbd>B</kbd></button>
+          <button id="undo" type="button" class="ghost">마지막 1장 지우기</button>
+        </div>
+        <p class="hint">클래스마다 100장 이상 권장. 촬영 중에 손 위치·각도·거리·조명을 조금씩 바꿔 주세요.</p>
+      </section>
+
+      <section aria-labelledby="train-title">
+        <h2 id="train-title">3. 학습</h2>
+        <div class="grid">
+          <label>모델
+            <select id="size">
+              <option value="n" selected>yolo26n-cls (가볍고 빠름)</option>
+              <option value="s">yolo26s-cls</option>
+              <option value="m">yolo26m-cls (느림)</option>
+            </select>
+          </label>
+          <label>에포크 <input id="epochs" type="number" min="1" max="300" value="30"></label>
+          <label>이미지 크기 <input id="imgsz" type="number" min="64" max="640" step="32" value="224"></label>
+        </div>
+        <button id="train" type="button" class="primary">학습 시작</button>
+        <progress id="train-progress" max="1" value="0"></progress>
+        <p id="train-msg" role="status" aria-live="polite">대기 중</p>
+        <p id="train-metrics" class="hint"></p>
+        <div id="model-info" class="hint"></div>
+      </section>
+
+      <section aria-labelledby="test-title">
+        <h2 id="test-title">4. 실시간 테스트</h2>
+        <button id="test" type="button" aria-pressed="false">테스트 시작</button>
+        <ul id="probs" class="probs" aria-live="off"></ul>
+      </section>
+    </div>
+  </main>
+
+  <canvas id="canvas" hidden></canvas>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+# 실행 기록(개인 사용 패턴)
+data/*.db
+data/*.db-*
+data/hook_log*.jsonl
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# 기타
+.env
+.DS_Store
+Thumbs.db
+
+# ESP32-S3 (Wi-Fi 비밀번호·토큰, 빌드 결과)
+esp32/notifier_remote/include/secrets.h
+esp32/notifier_remote/.pio/
+data/access_token.txt
+
+# 제스처 학습 (촬영 사진·학습 결과물은 개인 데이터/대용량)
+Gesture/dataset/
+Gesture/runs/
+Gesture/weights/
+
+# Claude 데스크톱 앱이 만든 미리보기 이미지
+Claude outputs/

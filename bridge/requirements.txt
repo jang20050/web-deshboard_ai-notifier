@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+pyserial
+psutil
+opencv-python
+numpy
+ultralytics>=8.4
