@@ -118,6 +118,38 @@ AI는 실제 진행률을 알려주지 않으므로 **지금 쓰는 도구로 �
 4. (선택) 제스처를 다시 학습하려면 `Gesture/start.bat` → `http://localhost:8001`
 5. (선택) CPU 온도를 보려면 LibreHardwareMonitor 실행 → `dashboard/README.md` 참고
 
+## 트러블슈팅 및 연동 ON/OFF 관리
+
+### 문제 현상: Claude 실행 시 `UserPromptSubmit ... No such file or directory` 에러 발생
+Orca 등 다른 환경에서 Claude Code를 사용할 때 프롬프트를 입력할 때마다 아래와 같은 에러가 발생하는 경우가 있습니다.
+```text
+UserPromptSubmit operation failed: ...
+can't open file 'C:\Users\...\web_deshboard\hooks\send_event.py': [Errno 2] No such file or directory
+```
+
+### 발생 원인
+1. **Claude 전역 설정(`~/.claude/settings.json`)에 Hook 등록됨**: `install_hooks.py`를 실행하면 Claude의 전역 설정 파일에 프롬프트 입력(`UserPromptSubmit`), 도구 실행(`PreToolUse`, `PostToolUse`), 응답 종료(`Stop`) 등 이벤트마다 `hooks/send_event.py`를 실행하도록 절대 경로가 등록됩니다.
+2. **프로젝트 폴더 이동 또는 이름 변경**: Hook을 등록한 뒤 프로젝트 폴더의 위치를 옮기거나 폴더 이름을 변경하면(예: `web_deshboard` → `ETEDU(VScode)/web_deshboard-ai_notifier`), `~/.claude/settings.json`에 남아 있는 이전 경로의 `send_event.py`를 찾지 못해 에러가 발생합니다.
+
+### 해결 방안 및 ON/OFF 방법
+
+목적에 따라 아래 두 가지 방법 중 하나로 해결할 수 있습니다. (`install_hooks.py`는 Orca의 기본 연동인 `orca-agent-hook.exe` 등 다른 Hook 설정은 건드리지 않고 이 프로젝트의 `send_event.py` 항목만 안전하게 추가·제거합니다.)
+
+#### 1. 아두이노·대시보드 연동을 완전히 끄고 싶을 때 (백그라운드 실행 해제)
+더 이상 알림 장치를 사용하지 않거나 백그라운드에서 Hook 스크립트가 실행되지 않게 하려면 아래 명령으로 Hook을 해제합니다.
+```powershell
+python hooks/install_hooks.py --remove
+```
+- 실행 후 열려 있는 Claude 창을 닫고 **새 세션을 시작**하면 에러가 사라지고 백그라운드 실행도 완전히 중단됩니다.
+
+#### 2. 변경된 폴더 위치로 경로를 갱신하고 필요할 때만 ON/OFF 하며 쓰고 싶을 때
+폴더를 옮긴 뒤에도 계속 사용하려면 아래 명령을 다시 실행해 현재 경로로 Hook을 재등록합니다.
+```powershell
+python hooks/install_hooks.py
+```
+- **명령어로 완전 ON/OFF**: 사용할 때만 `python hooks/install_hooks.py`로 등록하고, 쓰지 않을 때는 `python hooks/install_hooks.py --remove`로 해제합니다(변경 후 Claude 새 세션 시작 필요).
+- **브릿지 서버(`bridge/start_bridge.bat`)로 간편 ON/OFF**: 경로가 정상 등록되어 있으면 `send_event.py`는 브릿지 서버가 꺼져 있을 때 에러 없이 0.7초 내에 조용히 종료(`exit 0`)됩니다. 따라서 평소에는 브릿지 서버를 꺼두고, 아두이노 부저 알림과 대시보드가 필요할 때만 `bridge/start_bridge.bat`를 실행해서 사용할 수 있습니다.
+
 ## 개인정보 원칙
 - 알림 중 웹캠 영상은 **저장하지 않습니다.** "확인 제스처가 인식됨" 여부와 시각만 기록합니다.
 - 제스처 학습용 사진(`Gesture/dataset/`)과 실행 기록(`data/`)은 이 PC에만 두고 Git에 올리지 않습니다.
